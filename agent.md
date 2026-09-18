@@ -266,3 +266,20 @@ npm run build
 
 > [!IMPORTANT]
 > **Preserve Long-Running Processes**: The NestJS dev server (`npm run start:dev`) is running in the background. Never terminate or disrupt this process unless explicitly requested by the user.
+
+---
+
+## 11. Git & Version Control Workflow Rules
+
+1. **Conventional Commit Messages**:
+   - Use standard structured commit types: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`.
+   - Examples: `docs(agent): add git workflow rules to agent.md`, `feat(athletes): add gender and dob fields to athlete DTO`.
+2. **Atomic & Focused Commits**:
+   - Stage and commit only related changes per commit. Do not bundle unrelated refactorings or transient build outputs (`tsconfig.build.tsbuildinfo`, `dist/`).
+3. **Pre-Commit Verification**:
+   - Always run linting (`npm run lint`), build checks (`npm run build`), and relevant unit tests (`npm run test`) before committing code changes.
+4. **Secrets & Untracked Guardrails**:
+   - Never stage or commit environment configuration files containing real secrets (`.env`), database credentials, API keys, or private keys.
+5. **Clean Working Tree**:
+   - Keep the repository in a clean state and avoid leaving orphan or untracked temporary files in source directories.
+
