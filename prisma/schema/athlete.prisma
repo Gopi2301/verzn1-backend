@@ -1,0 +1,23 @@
+enum FitnessLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  ELITE
+}
+
+model Athlete {
+  id               String       @id @default(uuid()) @db.Uuid
+  userId           String       @unique @map("user_id") @db.Uuid
+  fitnessLevel     FitnessLevel @default(BEGINNER) @map("fitness_level")
+  currentPaceSecKm Int?         @map("current_pace_sec_km")
+  targetPaceSecKm  Int?         @map("target_pace_sec_km")
+  vo2Max           Float?       @map("vo2_max")
+  maxHr            Int?         @map("max_hr")
+  thresholdHr      Int?         @map("threshold_hr")
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("athletes")
+}
