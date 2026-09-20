@@ -24,6 +24,7 @@ model Athlete {
   updatedAt        DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  coaches CoachingRelationship[] @relation("AthleteCoach")
 
   @@map("athletes")
 }

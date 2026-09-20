@@ -1,0 +1,32 @@
+enum CoachingStatus {
+    INVITED
+    REQUESTED
+    ACTIVE
+    DECLINED
+    INACTIVE
+}
+
+model CoachingRelationship {
+    id String @id @default(uuid()) @db.Uuid
+    coachId String @map("coach_id") @db.Uuid
+    athleteId String @map("athlete_id") @db.Uuid
+    status CoachingStatus @default(INVITED)
+    invitationSentAt DateTime @default(now()) @map("invitation_sent_at") @db.Timestamptz
+    invitationAcceptedAt DateTime? @map("invitation_accepted_at") @db.Timestamptz
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+    coach Coach @relation("CoachAthlete", fields:[coachId], references:[id], onDelete:Cascade)
+    athlete Athlete @relation("AthleteCoach", fields:[athleteId], references:[id], onDelete:Cascade)
+    @@unique([coachId, athleteId])
+    @@map("coaching_relationships")
+}
+
+model ChatChannel {
+    id String @id @default(uuid()) @db.Uuid
+    coachId String @map("coach_id") @db.Uuid
+    athleteId String @map("athlete_id") @db.Uuid
+    createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+    updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+    
+    @@map("chat_channels")
+}

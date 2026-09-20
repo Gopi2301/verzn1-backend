@@ -14,6 +14,7 @@ import { ClubsModule } from './modules/clubs/clubs.module.js';
 import { CoachesModule } from './modules/coaches/coaches.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { CoachingModule } from './modules/coaching/coaching.module.js';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
     AthletesModule,
     CoachesModule,
     ClubsModule,
+    CoachingModule,
   ],
   controllers: [AppController],
   providers: [

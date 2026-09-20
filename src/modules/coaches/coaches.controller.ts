@@ -1,7 +1,6 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, UserPayload } from '../../common/decorators/current-user.decorator.js';
-import { Roles } from '../../common/decorators/roles.decorator.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard.js';
 import { CoachesService } from './coaches.service.js';
@@ -22,7 +21,6 @@ export class CoachesController {
   }
 
   @Put('me')
-  @Roles('COACH', 'ADMIN')
   @ApiOperation({ summary: 'Create or update current user coach profile' })
   @ApiResponse({ status: 200, description: 'Coach profile saved successfully' })
   async updateMyProfile(@CurrentUser() user: UserPayload, @Body() dto: CreateCoachDto) {
