@@ -46,6 +46,7 @@ describe('AthletesService', () => {
     prisma.athlete.upsert.mockResolvedValue(mockDbRecord);
 
     const result = await service.createOrUpdate('usr-1', {
+      dob: '1995-01-01',
       fitnessLevel: FitnessLevel.BEGINNER,
       currentPace: '6:30',
       targetPace: '5:30',

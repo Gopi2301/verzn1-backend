@@ -1,6 +1,6 @@
-import { ApiPropertyOptional } from '@nestjs/swagger';
-import { FitnessLevel } from '@prisma/client';
-import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { FitnessLevel, Gender } from '@prisma/client';
+import { IsEnum, IsInt, IsNotEmpty, IsNumber, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class CreateAthleteDto {
   @ApiPropertyOptional({
@@ -12,6 +12,35 @@ export class CreateAthleteDto {
   @IsEnum(FitnessLevel)
   @IsOptional()
   fitnessLevel?: FitnessLevel;
+
+  @ApiProperty({
+    description: 'Date of Birth'
+  })
+  @IsString()
+  @IsNotEmpty()
+  dob: string;
+
+  @ApiPropertyOptional({
+    description: 'Height in cm'
+  })
+  @IsNumber()
+  @IsOptional()
+  heightCm?: number;
+
+  @ApiPropertyOptional({
+    description: 'Weight in kg'
+  })
+  @IsNumber()
+  @IsOptional()
+  weightKg?: number;
+  @ApiPropertyOptional({
+    enum: Gender,
+    example: Gender.MALE,
+    description: 'Gender - MALE, FEMALE, OTHER',
+  })
+  @IsEnum(Gender)
+  @IsOptional()
+  gender?: Gender;
 
   @ApiPropertyOptional({
     example: '6:30',
