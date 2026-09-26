@@ -6,9 +6,10 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
-  athlete     Athlete?
-  coach       Coach?
-  memberships ClubMembership[]
+  athlete          Athlete?
+  coach            Coach?
+  memberships      ClubMembership[]
+  groupMemberships ClubGroupMembership[]
 
   @@map("users")
 }

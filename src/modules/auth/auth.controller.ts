@@ -1,7 +1,5 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post, Request, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
-import { CurrentUser, UserPayload } from "../../common/decorators/current-user.decorator.js";
-import { SupabaseAuthGuard } from "../../common/guards/supabase-auth.guard.js";
+import { Body, Controller, HttpCode, HttpStatus, Post } from "@nestjs/common";
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { UsersService } from "../users/users.service.js";
 import { AuthService } from "./auth.service.js";
 import { RefreshTokenDto } from "./refresh-token.dto.js";

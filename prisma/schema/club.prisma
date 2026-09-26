@@ -1,3 +1,15 @@
+enum ClubGroupType {
+  PACE
+  DISTANCE
+  ACTIVITY
+  GENERAL
+}
+
+enum ClubGroupStatus {
+  ACTIVE
+  ARCHIVED
+}
+
 model Club {
   id          String   @id @default(uuid()) @db.Uuid
   name        String
@@ -8,6 +20,7 @@ model Club {
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
 
   memberships ClubMembership[]
+  groups      ClubGroup[]
 
   @@map("clubs")
 }
@@ -27,4 +40,41 @@ model ClubMembership {
   @@index([clubId])
   @@index([userId])
   @@map("club_memberships")
+}
+
+model ClubGroup {
+  id          String                @id @default(uuid()) @db.Uuid
+  clubId      String                @map("club_id") @db.Uuid
+  name        String
+  slug        String                @unique
+  description String?
+  bannerUrl   String?               @map("banner_url")
+  types       ClubGroupType[]       @default([ACTIVITY])
+  status      ClubGroupStatus       @default(ACTIVE)
+  createdAt   DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime              @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  club        Club                  @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  memberships ClubGroupMembership[]
+
+  @@index([clubId])
+  @@map("club_groups")
+}
+
+model ClubGroupMembership {
+  id        String    @id @default(uuid()) @db.Uuid
+  groupId   String    @map("group_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  joinedAt  DateTime  @default(now()) @map("joined_at") @db.Timestamptz
+  leftAt    DateTime? @map("left_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+
+  group ClubGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@index([groupId])
+  @@index([userId])
+  @@map("club_group_memberships")
 }
