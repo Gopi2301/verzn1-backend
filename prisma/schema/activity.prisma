@@ -1,0 +1,39 @@
+enum SportType {
+  RUN
+  TRAIL_RUN
+  TREADMILL_RUN
+  WALK
+  HIKE
+  OTHER
+}
+
+model Activity {
+  id                 String     @id @default(uuid()) @db.Uuid
+  userId             String     @map("user_id") @db.Uuid
+  stravaActivityId   BigInt     @unique @map("strava_activity_id")
+  
+  title              String
+  sportType          SportType  @default(RUN) @map("sport_type")
+  distanceMeters     Float      @map("distance_meters")
+  movingTimeSec      Int        @map("moving_time_sec")
+  elapsedTimeSec     Int        @map("elapsed_time_sec")
+  totalElevationGain Float?     @map("total_elevation_gain")
+  
+  avgPaceSecKm       Int?       @map("avg_pace_sec_km")
+  avgHeartRate       Int?       @map("avg_heart_rate")
+  maxHeartRate       Int?       @map("max_heart_rate")
+  cadence            Float?     @map("cadence")
+  calories           Float?     @map("calories")
+  
+  startedAt          DateTime   @map("started_at") @db.Timestamptz
+  isManual           Boolean    @default(false) @map("is_manual")
+  polyline           String?    @db.Text
+  
+  createdAt          DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt          DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@map("activities")
+}

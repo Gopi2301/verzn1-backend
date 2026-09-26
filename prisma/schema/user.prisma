@@ -9,7 +9,9 @@ model User {
   athlete          Athlete?
   coach            Coach?
   memberships      ClubMembership[]
-  groupMemberships ClubGroupMembership[]
+  groupMemberships  ClubGroupMembership[]
+  stravaIntegration StravaIntegration?
+  activities        Activity[]
 
   @@map("users")
 }

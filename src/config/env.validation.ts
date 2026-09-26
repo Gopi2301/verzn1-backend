@@ -31,6 +31,22 @@ class EnvironmentVariables {
   @IsString()
   @IsOptional()
   SUPABASE_SERVICE_ROLE_KEY?: string;
+
+  @IsString()
+  @IsOptional()
+  STRAVA_CLIENT_ID?: string;
+
+  @IsString()
+  @IsOptional()
+  STRAVA_CLIENT_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  STRAVA_SECRET?: string;
+
+  @IsString()
+  @IsOptional()
+  APP_BASE_URL?: string;
 }
 
 export function validate(config: Record<string, unknown>) {
