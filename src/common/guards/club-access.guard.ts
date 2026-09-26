@@ -26,8 +26,9 @@ export class ClubAccessGuard implements CanActivate {
 
     const clubId = request.params.id || request.params.clubId;
     const slug = request.params.slug;
+    const groupId = request.params.groupId;
 
-    if (!clubId && !slug) {
+    if (!clubId && !slug && !groupId) {
       return true;
     }
 
@@ -41,6 +42,15 @@ export class ClubAccessGuard implements CanActivate {
         throw new ForbiddenException(`Club with slug '${slug}' not found`);
       }
       targetClubId = club.id;
+    } else if (!targetClubId && groupId) {
+      const group = await this.prisma.clubGroup.findUnique({
+        where: { id: groupId },
+        select: { clubId: true },
+      });
+      if (!group) {
+        throw new ForbiddenException(`Subgroup with ID '${groupId}' not found`);
+      }
+      targetClubId = group.clubId;
     }
 
     const membership = await this.prisma.clubMembership.findUnique({

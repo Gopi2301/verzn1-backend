@@ -165,7 +165,9 @@ export class ClubsController {
   }
 
   @Patch('groups/:groupId')
-  @ApiOperation({ summary: 'Update subgroup details' })
+  @UseGuards(ClubAccessGuard)
+  @Roles('OWNER', 'ADMIN', 'COACH')
+  @ApiOperation({ summary: 'Update subgroup details (Requires OWNER, ADMIN, or COACH)' })
   @ApiResponse({ status: 200, description: 'Group updated successfully' })
   async updateGroup(
     @Param('groupId', ParseUUIDPipe) groupId: string,
@@ -175,14 +177,18 @@ export class ClubsController {
   }
 
   @Patch('groups/:groupId/archive')
-  @ApiOperation({ summary: 'Archive a subgroup' })
+  @UseGuards(ClubAccessGuard)
+  @Roles('OWNER', 'ADMIN', 'COACH')
+  @ApiOperation({ summary: 'Archive a subgroup (Requires OWNER, ADMIN, or COACH)' })
   @ApiResponse({ status: 200, description: 'Group archived successfully' })
   async archiveGroup(@Param('groupId', ParseUUIDPipe) groupId: string) {
     return this.clubsService.archiveGroup(groupId);
   }
 
   @Delete('groups/:groupId')
-  @ApiOperation({ summary: 'Delete a subgroup' })
+  @UseGuards(ClubAccessGuard)
+  @Roles('OWNER', 'ADMIN')
+  @ApiOperation({ summary: 'Delete a subgroup (Requires OWNER or ADMIN in the parent club)' })
   @ApiResponse({ status: 200, description: 'Group deleted successfully' })
   async deleteGroup(@Param('groupId', ParseUUIDPipe) groupId: string) {
     return this.clubsService.deleteGroup(groupId);
