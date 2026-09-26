@@ -102,8 +102,10 @@ export class ClubsService {
   async joinClub(clubId: string, userId: string, dto: JoinClubDto) {
     await this.findById(clubId);
 
-    if (dto?.role && (dto.role === ClubRole.OWNER || dto.role === ClubRole.ADMIN)) {
-      throw new ForbiddenException('Cannot self-assign OWNER or ADMIN role when joining a club');
+    if (dto?.role && dto.role !== ClubRole.MEMBER) {
+      throw new ForbiddenException(
+        'Members cannot self-assign privileged roles (OWNER, ADMIN, COACH, CAPTAIN) when joining a club',
+      );
     }
 
     return this.prisma.clubMembership.upsert({
@@ -113,10 +115,10 @@ export class ClubsService {
       create: {
         clubId,
         userId,
-        role: dto.role || ClubRole.MEMBER,
+        role: ClubRole.MEMBER,
       },
       update: {
-        role: dto.role || ClubRole.MEMBER,
+        role: ClubRole.MEMBER,
       },
       include: { club: true, user: true },
     });

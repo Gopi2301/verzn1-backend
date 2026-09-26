@@ -145,4 +145,76 @@ describe('StravaService', () => {
       await expect(service.disconnect('usr-unknown')).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('Token Encryption & Decryption at Rest', () => {
+    it('should encrypt tokens with AES-256-GCM and decrypt back to plaintext', () => {
+      const plainToken = 'strava_access_token_secret_12345';
+      const encrypted = service.encryptToken(plainToken);
+
+      expect(encrypted).toBeDefined();
+      expect(encrypted).not.toEqual(plainToken);
+      expect(encrypted.startsWith('enc:')).toBe(true);
+
+      const decrypted = service.decryptToken(encrypted);
+      expect(decrypted).toBe(plainToken);
+    });
+
+    it('should handle unencrypted legacy tokens gracefully', () => {
+      const legacyToken = 'legacy_plaintext_token';
+      expect(service.decryptToken(legacyToken)).toBe(legacyToken);
+    });
+  });
+
+  describe('Webhook Event Handling', () => {
+    it('should delete activity scoped to owner integration userId', async () => {
+      prisma.stravaIntegration.findUnique.mockResolvedValue({
+        userId: 'usr-athlete-1',
+        stravaAthleteId: BigInt(999),
+        updatedAt: new Date(),
+      });
+      prisma.activity.deleteMany.mockResolvedValue({ count: 1 });
+
+      const result = await service.handleWebhookEvent({
+        object_type: 'activity',
+        aspect_type: 'delete',
+        owner_id: 999,
+        object_id: 1234567,
+        event_time: Math.floor(Date.now() / 1000),
+        subscription_id: 1,
+      });
+
+      expect(result.received).toBe(true);
+      expect(prisma.activity.deleteMany).toHaveBeenCalledWith({
+        where: {
+          stravaActivityId: BigInt(1234567),
+          userId: 'usr-athlete-1',
+        },
+      });
+    });
+
+    it('should ignore stale deauthorization events', async () => {
+      const now = Date.now();
+      prisma.stravaIntegration.findUnique.mockResolvedValue({
+        userId: 'usr-athlete-1',
+        stravaAthleteId: BigInt(999),
+        updatedAt: new Date(now), // reconnected recently
+      });
+
+      // Event is from 10 minutes ago
+      const staleEventTime = Math.floor((now - 600000) / 1000);
+
+      const result = await service.handleWebhookEvent({
+        object_type: 'athlete',
+        aspect_type: 'update',
+        owner_id: 999,
+        object_id: 999,
+        event_time: staleEventTime,
+        subscription_id: 1,
+        updates: { authorized: 'false' },
+      });
+
+      expect(result.received).toBe(true);
+      expect(result.ignored).toBe(true);
+    });
+  });
 });

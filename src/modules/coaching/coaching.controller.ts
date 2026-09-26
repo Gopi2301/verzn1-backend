@@ -85,11 +85,13 @@ export class CoachingController {
     @Post(':coachId/:athleteId/chat')
     @ApiOperation({ summary: 'Get or create a chat channel for an active coaching relationship' })
     @ApiResponse({ status: 200, description: 'Chat channel returned' })
+    @ApiResponse({ status: 403, description: 'Forbidden if caller is not a participant in the relationship' })
     async chat(
         @Param('coachId', ParseUUIDPipe) coachId: string,
         @Param('athleteId', ParseUUIDPipe) athleteId: string,
+        @CurrentUser() user: UserPayload,
     ) {
-        return this.coachingService.coachChat(coachId, athleteId);
+        return this.coachingService.coachChat(coachId, athleteId, user.id);
     }
 
     // ─── MY CONNECTIONS ──────────────────────────────────────────────────────────

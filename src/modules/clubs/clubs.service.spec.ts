@@ -143,6 +143,20 @@ describe('ClubsService', () => {
         service.joinClub('clb-1', 'usr-attacker', { role: ClubRole.ADMIN }),
       ).rejects.toThrow(ForbiddenException);
     });
+
+    it('should throw ForbiddenException if user tries to self-assign COACH role on join', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'clb-1', name: 'City Striders' });
+      await expect(
+        service.joinClub('clb-1', 'usr-attacker', { role: ClubRole.COACH }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if user tries to self-assign CAPTAIN role on join', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'clb-1', name: 'City Striders' });
+      await expect(
+        service.joinClub('clb-1', 'usr-attacker', { role: ClubRole.CAPTAIN }),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('Subgroup Operations', () => {
