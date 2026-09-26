@@ -111,6 +111,38 @@ describe('ClubsService', () => {
       prisma.club.findUnique.mockResolvedValue(null);
       await expect(service.findById('unknown-id')).rejects.toThrow(NotFoundException);
     });
+
+    it('should allow a user to join a club as MEMBER', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'clb-1', name: 'City Striders' });
+      prisma.clubMembership.upsert.mockResolvedValue({
+        id: 'cmb-1',
+        clubId: 'clb-1',
+        userId: 'usr-athlete',
+        role: ClubRole.MEMBER,
+      });
+
+      const result = await service.joinClub('clb-1', 'usr-athlete', { role: ClubRole.MEMBER });
+      expect(result.role).toBe(ClubRole.MEMBER);
+      expect(prisma.clubMembership.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ role: ClubRole.MEMBER }),
+        }),
+      );
+    });
+
+    it('should throw ForbiddenException if user tries to self-assign OWNER role on join', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'clb-1', name: 'City Striders' });
+      await expect(
+        service.joinClub('clb-1', 'usr-attacker', { role: ClubRole.OWNER }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if user tries to self-assign ADMIN role on join', async () => {
+      prisma.club.findUnique.mockResolvedValue({ id: 'clb-1', name: 'City Striders' });
+      await expect(
+        service.joinClub('clb-1', 'usr-attacker', { role: ClubRole.ADMIN }),
+      ).rejects.toThrow(ForbiddenException);
+    });
   });
 
   describe('Subgroup Operations', () => {

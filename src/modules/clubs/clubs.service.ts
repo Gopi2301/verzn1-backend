@@ -102,6 +102,10 @@ export class ClubsService {
   async joinClub(clubId: string, userId: string, dto: JoinClubDto) {
     await this.findById(clubId);
 
+    if (dto?.role && (dto.role === ClubRole.OWNER || dto.role === ClubRole.ADMIN)) {
+      throw new ForbiddenException('Cannot self-assign OWNER or ADMIN role when joining a club');
+    }
+
     return this.prisma.clubMembership.upsert({
       where: {
         clubId_userId: { clubId, userId },

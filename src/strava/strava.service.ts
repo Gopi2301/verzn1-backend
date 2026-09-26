@@ -6,6 +6,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as crypto from 'crypto';
 import { PrismaService } from '../database/prisma.service.js';
 import { SportType } from '@prisma/client';
 
@@ -89,6 +90,68 @@ export class StravaService {
   }
 
   /**
+   * Generates a cryptographically secure, unpredictable OAuth state token tied to the user.
+   */
+  generateOAuthState(userId: string): string {
+    const timestamp = Date.now();
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const payload = `${userId}:${timestamp}:${nonce}`;
+    const secret = this.clientSecret || 'sportz_strava_state_secret';
+    const signature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+    return Buffer.from(`${payload}:${signature}`).toString('base64url');
+  }
+
+  /**
+   * Verifies and extracts the userId from an OAuth state token.
+   * Ensures the state is valid, not expired, and has not been tampered with.
+   */
+  verifyOAuthState(state: string): string {
+    if (!state) {
+      throw new BadRequestException('OAuth state parameter is missing');
+    }
+
+    let decoded: string;
+    try {
+      decoded = Buffer.from(state, 'base64url').toString('utf8');
+    } catch {
+      throw new BadRequestException('Invalid OAuth state format');
+    }
+
+    const parts = decoded.split(':');
+    if (parts.length !== 4) {
+      throw new BadRequestException('Invalid OAuth state format');
+    }
+
+    const [userId, timestampStr, nonce, signature] = parts;
+    const timestamp = parseInt(timestampStr, 10);
+    if (isNaN(timestamp)) {
+      throw new BadRequestException('Invalid OAuth state timestamp');
+    }
+
+    const maxAge = 15 * 60 * 1000; // 15 minutes
+    const now = Date.now();
+    if (now - timestamp > maxAge || timestamp > now + 60000) {
+      throw new BadRequestException('OAuth state has expired');
+    }
+
+    const payload = `${userId}:${timestampStr}:${nonce}`;
+    const secret = this.clientSecret || 'sportz_strava_state_secret';
+    const expectedSignature = crypto.createHmac('sha256', secret).update(payload).digest('hex');
+
+    const sigBuffer = Buffer.from(signature, 'hex');
+    const expectedSigBuffer = Buffer.from(expectedSignature, 'hex');
+
+    if (
+      sigBuffer.length !== expectedSigBuffer.length ||
+      !crypto.timingSafeEqual(sigBuffer, expectedSigBuffer)
+    ) {
+      throw new BadRequestException('Invalid OAuth state signature');
+    }
+
+    return userId;
+  }
+
+  /**
    * Generates the Strava OAuth authorization URL to redirect the user.
    */
   getAuthorizationUrl(userId: string, customRedirectUri?: string): string {
@@ -98,13 +161,14 @@ export class StravaService {
 
     const redirectUri = customRedirectUri || `${this.appBaseUrl}/api/v1/strava/callback`;
     const scope = 'read,activity:read_all';
+    const state = this.generateOAuthState(userId);
     const params = new URLSearchParams({
       client_id: this.clientId,
       response_type: 'code',
       redirect_uri: redirectUri,
       approval_prompt: 'auto',
       scope,
-      state: userId,
+      state,
     });
 
     return `https://www.strava.com/oauth/authorize?${params.toString()}`;
@@ -114,7 +178,7 @@ export class StravaService {
    * Exchanges the temporary authorization code from Strava for access & refresh tokens
    * and saves the integration in the database.
    */
-  async exchangeAuthorizationCode(code: string, userId: string, scope?: string) {
+  async exchangeAuthorizationCode(code: string, state: string, scope?: string) {
     if (!this.clientId || !this.clientSecret) {
       throw new InternalServerErrorException('Strava credentials are not properly configured');
     }
@@ -123,9 +187,11 @@ export class StravaService {
       throw new BadRequestException('Authorization code is required');
     }
 
-    if (!userId) {
-      throw new BadRequestException('User ID (state) is missing from the OAuth callback');
+    if (!state) {
+      throw new BadRequestException('OAuth state parameter is missing from the callback');
     }
+
+    const userId = this.verifyOAuthState(state);
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
