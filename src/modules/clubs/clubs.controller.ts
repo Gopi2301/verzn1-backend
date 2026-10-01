@@ -135,8 +135,8 @@ export class ClubsController {
 
   @Post(':id/groups')
   @UseGuards(ClubAccessGuard)
-  @Roles('OWNER', 'ADMIN', 'COACH')
-  @ApiOperation({ summary: 'Create a new sub-training group in a club (Requires OWNER, ADMIN, or COACH)' })
+  @Roles('OWNER')
+  @ApiOperation({ summary: 'Create a new sub-training group in a club (Requires OWNER role in club)' })
   @ApiResponse({ status: 201, description: 'Subgroup created successfully' })
   async createGroup(
     @Param('id', ParseUUIDPipe) clubId: string,

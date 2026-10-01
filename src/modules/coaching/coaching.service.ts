@@ -257,7 +257,22 @@ export class CoachingService {
     // COACH CHAT CHANNEL
     // Gets or creates a chat channel. Requires an active coaching relationship.
     // ─────────────────────────────────────────────────────────────────────────────
-    async coachChat(coachId: string, athleteId: string) {
+    async coachChat(coachId: string, athleteId: string, callerUserId: string) {
+        const [coach, athlete] = await Promise.all([
+            this.prisma.coach.findUnique({ where: { id: coachId } }),
+            this.prisma.athlete.findUnique({ where: { id: athleteId } }),
+        ]);
+
+        if (!coach || !athlete) {
+            throw new NotFoundException('Coach or Athlete not found');
+        }
+
+        if (coach.userId !== callerUserId && athlete.userId !== callerUserId) {
+            throw new ForbiddenException(
+                'Only participants in this coaching relationship may access the chat channel'
+            );
+        }
+
         const relationship = await this.prisma.coachingRelationship.findUnique({
             where: { coachId_athleteId: { coachId, athleteId } },
         });
@@ -313,7 +328,7 @@ export class CoachingService {
                 }),
             },
             include: {
-                user: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+                user: { select: { id: true, fullName: true, avatarUrl: true } },
             },
             take: dto.limit ?? 20,
             skip: dto.offset ?? 0,
@@ -349,7 +364,7 @@ export class CoachingService {
                 }),
             },
             include: {
-                user: { select: { id: true, fullName: true, email: true, avatarUrl: true } },
+                user: { select: { id: true, fullName: true, avatarUrl: true } },
             },
             take: dto.limit ?? 20,
             skip: dto.offset ?? 0,

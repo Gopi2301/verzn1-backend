@@ -64,6 +64,8 @@ export class StravaService {
   private readonly clientSecret: string;
   private readonly appBaseUrl: string;
   private readonly webhookVerifyToken: string;
+  private readonly webhookSubscriptionId: string;
+  private readonly tokenEncryptionKey: Buffer;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -87,6 +89,53 @@ export class StravaService {
         process.env.STRAVA_WEBHOOK_VERIFY_TOKEN ||
         'sportz_strava_webhook_token',
     );
+    this.webhookSubscriptionId = String(
+      this.configService.get('STRAVA_WEBHOOK_SUBSCRIPTION_ID') ||
+        process.env.STRAVA_WEBHOOK_SUBSCRIPTION_ID ||
+        '',
+    );
+    const encryptionKeySource = String(
+      this.configService.get('STRAVA_TOKEN_ENCRYPTION_KEY') ||
+        process.env.STRAVA_TOKEN_ENCRYPTION_KEY ||
+        this.clientSecret ||
+        'sportz_strava_token_encryption_key_default',
+    );
+    this.tokenEncryptionKey = crypto.createHash('sha256').update(encryptionKeySource).digest();
+  }
+
+  /**
+   * Encrypts sensitive OAuth tokens at rest using AES-256-GCM.
+   */
+  encryptToken(plainText: string): string {
+    if (!plainText) return plainText;
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', this.tokenEncryptionKey, iv);
+    let encrypted = cipher.update(plainText, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag().toString('hex');
+    return `enc:${iv.toString('hex')}:${authTag}:${encrypted}`;
+  }
+
+  /**
+   * Decrypts tokens encrypted with encryptToken.
+   * Handles backward-compatibility for unencrypted legacy tokens.
+   */
+  decryptToken(cipherText: string): string {
+    if (!cipherText || !cipherText.startsWith('enc:')) {
+      return cipherText;
+    }
+    const parts = cipherText.split(':');
+    if (parts.length !== 4) {
+      throw new InternalServerErrorException('Malformed encrypted token format');
+    }
+    const [, ivHex, authTagHex, encryptedHex] = parts;
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', this.tokenEncryptionKey, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
   }
 
   /**
@@ -232,8 +281,8 @@ export class StravaService {
         create: {
           userId,
           stravaAthleteId: BigInt(athleteId),
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
+          accessToken: this.encryptToken(data.access_token),
+          refreshToken: this.encryptToken(data.refresh_token),
           expiresAt: new Date(data.expires_at * 1000),
           scope: scope || 'read,activity:read_all',
           status: 'SYNCED',
@@ -242,8 +291,8 @@ export class StravaService {
         },
         update: {
           stravaAthleteId: BigInt(athleteId),
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
+          accessToken: this.encryptToken(data.access_token),
+          refreshToken: this.encryptToken(data.refresh_token),
           expiresAt: new Date(data.expires_at * 1000),
           scope: scope || 'read,activity:read_all',
           status: 'SYNCED',
@@ -290,7 +339,7 @@ export class StravaService {
       new Date(integration.expiresAt).getTime() - Date.now() < fiveMinutes;
 
     if (!isExpiredOrExpiring) {
-      return integration.accessToken;
+      return this.decryptToken(integration.accessToken);
     }
 
     this.logger.log(`Refreshing Strava token for user ${userId}`);
@@ -302,7 +351,7 @@ export class StravaService {
           client_id: this.clientId,
           client_secret: this.clientSecret,
           grant_type: 'refresh_token',
-          refresh_token: integration.refreshToken,
+          refresh_token: this.decryptToken(integration.refreshToken),
         }),
       });
 
@@ -320,8 +369,8 @@ export class StravaService {
       await this.prisma.stravaIntegration.update({
         where: { userId },
         data: {
-          accessToken: data.access_token,
-          refreshToken: data.refresh_token,
+          accessToken: this.encryptToken(data.access_token),
+          refreshToken: this.encryptToken(data.refresh_token),
           expiresAt: new Date(data.expires_at * 1000),
           status: 'SYNCED',
         },
@@ -505,7 +554,7 @@ export class StravaService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          access_token: integration.accessToken,
+          access_token: this.decryptToken(integration.accessToken),
         }),
       });
     } catch (e) {
@@ -558,6 +607,12 @@ export class StravaService {
   async handleWebhookEvent(event: StravaWebhookEvent) {
     this.logger.log(`Strava Webhook received: ${event.object_type}:${event.aspect_type} for owner ${event.owner_id}`);
 
+    // Verify subscription ID if configured
+    if (this.webhookSubscriptionId && String(event.subscription_id) !== this.webhookSubscriptionId) {
+      this.logger.warn(`Rejected webhook with invalid subscription_id: ${event.subscription_id}`);
+      return { received: false, error: 'Invalid subscription ID' };
+    }
+
     const integration = await this.prisma.stravaIntegration.findUnique({
       where: { stravaAthleteId: BigInt(event.owner_id) },
     });
@@ -569,6 +624,15 @@ export class StravaService {
 
     if (event.object_type === 'athlete' && event.aspect_type === 'update') {
       if (event.updates?.authorized === 'false') {
+        // Prevent stale or replayed events from reversing recent reconnects
+        const eventTimeMs = event.event_time ? event.event_time * 1000 : 0;
+        const integrationUpdatedMs = integration.updatedAt ? new Date(integration.updatedAt).getTime() : 0;
+        if (eventTimeMs && integrationUpdatedMs && eventTimeMs < integrationUpdatedMs - 60000) {
+          this.logger.warn(
+            `Ignored stale athlete deauthorization event for owner ${event.owner_id} (event: ${eventTimeMs}, updatedAt: ${integrationUpdatedMs})`,
+          );
+          return { received: true, ignored: true };
+        }
         await this.disconnect(integration.userId);
       }
       return { received: true };
@@ -576,10 +640,14 @@ export class StravaService {
 
     if (event.object_type === 'activity') {
       if (event.aspect_type === 'delete') {
+        // Owner-scoped deletion predicate: only delete activities belonging to the verified owner integration
         await this.prisma.activity.deleteMany({
-          where: { stravaActivityId: BigInt(event.object_id) },
+          where: {
+            stravaActivityId: BigInt(event.object_id),
+            userId: integration.userId,
+          },
         });
-        this.logger.log(`Deleted activity ${event.object_id} via webhook`);
+        this.logger.log(`Deleted activity ${event.object_id} for user ${integration.userId} via webhook`);
       } else if (event.aspect_type === 'create' || event.aspect_type === 'update') {
         // Fetch specific activity details
         await this.syncSingleActivity(integration.userId, event.object_id);
