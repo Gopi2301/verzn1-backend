@@ -97,7 +97,13 @@ describe('ClubsService', () => {
         name: 'City Striders',
         slug: 'city-striders',
       });
-      expect(prisma.club.create).toHaveBeenCalled();
+      expect(prisma.club.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            memberships: { create: { userId: 'usr-owner', role: ClubRole.OWNER } },
+          }),
+        }),
+      );
     });
 
     it('should throw ConflictException if slug already exists', async () => {
@@ -126,6 +132,7 @@ describe('ClubsService', () => {
       expect(prisma.clubMembership.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
           create: expect.objectContaining({ role: ClubRole.MEMBER }),
+          update: {},
         }),
       );
     });

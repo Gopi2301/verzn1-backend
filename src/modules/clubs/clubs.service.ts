@@ -56,6 +56,7 @@ export class ClubsService {
           include: { user: true },
         },
         groups: true,
+        _count: { select: { memberships: true, groups: true } },
       },
     });
     if (!club) {
@@ -72,6 +73,7 @@ export class ClubsService {
           include: { user: true },
         },
         groups: true,
+        _count: { select: { memberships: true, groups: true } },
       },
     });
     if (!club) {
@@ -117,9 +119,7 @@ export class ClubsService {
         userId,
         role: ClubRole.MEMBER,
       },
-      update: {
-        role: ClubRole.MEMBER,
-      },
+      update: {},
       include: { club: true, user: true },
     });
   }
@@ -148,7 +148,14 @@ export class ClubsService {
   async myClubs(userId: string) {
     return this.prisma.clubMembership.findMany({
       where: { userId },
-      include: { club: true },
+      include: {
+        club: {
+          include: {
+            _count: { select: { memberships: true, groups: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
     });
   }
 
